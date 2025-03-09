@@ -3,174 +3,254 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>2-Person Voice & Text Chat</title>
+  <title>Voice & Text Chat Room</title>
   <style>
-    /* Minimal modern UI with white and black color scheme */
+    /* Global Reset & Basic Styles */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #fff;
-      color: #000;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f9f9f9;
+      color: #333;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
+      align-items: center;
       min-height: 100vh;
+      padding: 1rem;
+    }
+    .container {
+      width: 100%;
+      max-width: 800px;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
     header {
-      background: #fff;
-      border-bottom: 1px solid #000;
+      background: #222;
+      color: #fff;
       padding: 1rem;
       text-align: center;
       font-size: 1.5rem;
     }
-    #home, #chat {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 1rem;
-    }
+    /* Home View */
     #home {
-      margin-top: 2rem;
+      padding: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      gap: 1rem;
     }
-    button {
+    .card {
+      flex: 1 1 300px;
       background: #fff;
-      border: 1px solid #000;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      margin: 0.5rem;
-      transition: background 0.3s, color 0.3s;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    button:hover {
-      background: #000;
+    .card h2 { margin-bottom: 1rem; font-size: 1.25rem; }
+    .card input {
+      width: 80%;
+      padding: 0.5rem;
+      border: 1px solid #aaa;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+    .card button {
+      padding: 0.5rem 1rem;
+      border: 1px solid #222;
+      background: #fff;
+      color: #222;
+      cursor: pointer;
+      transition: background 0.3s, color 0.3s;
+      border-radius: 4px;
+    }
+    .card button:hover {
+      background: #222;
       color: #fff;
     }
-    input {
-      padding: 0.5rem;
-      border: 1px solid #000;
-      margin: 0.5rem;
+    #errorMsg {
+      width: 100%;
+      text-align: center;
+      color: red;
+      margin-top: 1rem;
     }
-    .chat-box {
+    /* Chat View */
+    #chat {
+      padding: 1.5rem;
+    }
+    #roomInfo {
+      margin-bottom: 1rem;
+      text-align: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+    audio {
+      display: block;
+      margin: 0 auto 1rem;
       width: 90%;
       max-width: 600px;
-      border: 1px solid #000;
+    }
+    .chat-box {
+      border: 1px solid #222;
       border-radius: 8px;
-      margin-top: 1rem;
+      height: 300px;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      margin-bottom: 1rem;
     }
     .messages {
-      height: 200px;
-      overflow-y: auto;
+      flex: 1;
       padding: 1rem;
-      border-bottom: 1px solid #000;
+      overflow-y: auto;
       background: #fff;
     }
     .message {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
       word-wrap: break-word;
     }
+    .message.sent { text-align: right; }
     .input-area {
       display: flex;
+      border-top: 1px solid #222;
     }
     .input-area input {
       flex: 1;
-      border: none;
       padding: 0.75rem;
+      border: none;
       outline: none;
+      font-size: 1rem;
     }
     .input-area button {
-      border-left: 1px solid #000;
+      border: none;
+      background: #222;
+      color: #fff;
+      padding: 0 1rem;
+      cursor: pointer;
+      transition: background 0.3s, color 0.3s;
     }
-    #roomInfo {
-      margin-top: 1rem;
-      font-weight: bold;
+    .input-area button:hover {
+      background: #444;
     }
-    audio {
-      margin-top: 1rem;
-      width: 90%;
-      max-width: 600px;
-      outline: none;
+    #backButton {
+      display: block;
+      margin: 0 auto;
+      padding: 0.5rem 1rem;
+      border: 1px solid #222;
+      background: #fff;
+      color: #222;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.3s, color 0.3s;
+    }
+    #backButton:hover {
+      background: #222;
+      color: #fff;
     }
   </style>
 </head>
 <body>
-  <header>2-Person Voice & Text Chat</header>
+  <div class="container">
+    <header>Voice & Text Chat Room</header>
 
-  <!-- Home view with Create and Join Room functionality -->
-  <div id="home">
-    <h2>Welcome</h2>
-    <button id="createRoom">Create Room</button>
-    <div>
-      <input type="text" id="joinRoomInput" placeholder="Enter Room ID to Join" />
-      <button id="joinRoom">Join Room</button>
-    </div>
-  </div>
-
-  <!-- Chat view (hidden initially) -->
-  <div id="chat" style="display:none;">
-    <div id="roomInfo"></div>
-    <!-- Remote audio element for voice chat -->
-    <audio id="remoteAudio" autoplay controls></audio>
-    <!-- Chat box for text messages -->
-    <div class="chat-box">
-      <div class="messages" id="messages"></div>
-      <div class="input-area">
-        <input type="text" id="chatInput" placeholder="Type your message..." />
-        <button id="emojiButton">😀</button>
-        <button id="sendChat">Send</button>
+    <!-- Home View: Create / Join Room -->
+    <div id="home">
+      <div class="card">
+        <h2>Create Room</h2>
+        <button id="createRoom">Create Room</button>
+        <p id="createdRoomInfo"></p>
       </div>
+      <div class="card">
+        <h2>Join Room</h2>
+        <input type="text" id="joinRoomInput" placeholder="Enter Room ID" />
+        <button id="joinRoom">Join Room</button>
+      </div>
+      <div id="errorMsg"></div>
+    </div>
+
+    <!-- Chat View: Audio & Text Chat -->
+    <div id="chat" style="display:none;">
+      <div id="roomInfo"></div>
+      <!-- Remote audio for voice chat -->
+      <audio id="remoteAudio" autoplay controls></audio>
+      <!-- Chat Box for text messages -->
+      <div class="chat-box">
+        <div class="messages" id="messages"></div>
+        <div class="input-area">
+          <input type="text" id="chatInput" placeholder="Type your message..." />
+          <button id="emojiButton">😀</button>
+          <button id="sendChat">Send</button>
+        </div>
+      </div>
+      <button id="backButton">Back to Home</button>
     </div>
   </div>
 
-  <!-- Include PeerJS (free & open source) -->
+  <!-- PeerJS & Emoji Button libraries -->
   <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-  <!-- Include Emoji Button -->
   <script src="https://unpkg.com/@joeattardi/emoji-button@4.6.2/dist/index.js"></script>
   <script>
     let peer, localStream, call, dataConn;
     let isHost = false;
 
-    // Acquire local audio (voice only)
+    // Get local audio (voice only)
     async function getLocalAudio() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch (err) {
         console.error("Error accessing audio devices:", err);
+        showError("Error accessing audio devices. Please check your microphone.");
       }
     }
     getLocalAudio();
 
-    // UI Elements
+    // UI elements
     const homeDiv = document.getElementById("home");
     const chatDiv = document.getElementById("chat");
     const roomInfoDiv = document.getElementById("roomInfo");
+    const createdRoomInfo = document.getElementById("createdRoomInfo");
+    const errorMsg = document.getElementById("errorMsg");
     const remoteAudio = document.getElementById("remoteAudio");
     const messagesDiv = document.getElementById("messages");
     const chatInput = document.getElementById("chatInput");
 
+    // Show error messages in UI
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      setTimeout(() => { errorMsg.textContent = ""; }, 5000);
+    }
+
     // Create Room (Host)
     document.getElementById("createRoom").addEventListener("click", () => {
       isHost = true;
-      // Create a Peer instance with a generated ID
       peer = new Peer(undefined, {
         host: "peerjs.com",
         secure: true,
         port: 443
       });
       peer.on("open", (id) => {
+        createdRoomInfo.textContent = "Room ID: " + id;
         roomInfoDiv.textContent = "Room ID: " + id;
         homeDiv.style.display = "none";
-        chatDiv.style.display = "flex";
+        chatDiv.style.display = "block";
       });
-      // Answer incoming voice calls
+      // Handle incoming voice call (from joiner)
       peer.on("call", (incomingCall) => {
         call = incomingCall;
-        call.answer(localStream);
+        incomingCall.answer(localStream);
         setupCallEventHandlers(call);
       });
-      // Handle incoming data connections for text chat
+      // Handle incoming data connection (for text chat)
       peer.on("connection", (conn) => {
         dataConn = conn;
         setupDataHandlers();
+      });
+      peer.on("error", (err) => {
+        console.error(err);
+        showError("Peer error: " + err);
       });
     });
 
@@ -178,11 +258,10 @@
     document.getElementById("joinRoom").addEventListener("click", () => {
       const roomId = document.getElementById("joinRoomInput").value.trim();
       if (!roomId) {
-        alert("Please enter a valid Room ID.");
+        showError("Please enter a valid Room ID.");
         return;
       }
       isHost = false;
-      // Create a Peer instance
       peer = new Peer(undefined, {
         host: "peerjs.com",
         secure: true,
@@ -191,8 +270,8 @@
       peer.on("open", (id) => {
         roomInfoDiv.textContent = "Connected to Room: " + roomId;
         homeDiv.style.display = "none";
-        chatDiv.style.display = "flex";
-        // Initiate voice call to the room (host)
+        chatDiv.style.display = "block";
+        // Initiate voice call to host
         call = peer.call(roomId, localStream);
         setupCallEventHandlers(call);
         // Initiate data connection for text chat
@@ -201,11 +280,16 @@
       });
       peer.on("error", (err) => {
         console.error(err);
-        alert("Error connecting to room: " + err);
+        showError("Connection error: " + err);
       });
     });
 
-    // Setup voice call event handlers
+    // Back to Home: reload page (or implement cleanup as needed)
+    document.getElementById("backButton").addEventListener("click", () => {
+      window.location.reload();
+    });
+
+    // Voice call event handlers
     function setupCallEventHandlers(call) {
       call.on("stream", (remoteStream) => {
         remoteAudio.srcObject = remoteStream;
@@ -215,19 +299,24 @@
       });
       call.on("error", (err) => {
         console.error("Call error:", err);
+        showError("Call error: " + err);
       });
     }
 
-    // Setup text chat data connection handlers
+    // Data connection handlers for text chat
     function setupDataHandlers() {
       dataConn.on("data", (data) => {
         appendMessage("Peer: " + data, "received");
       });
+      dataConn.on("error", (err) => {
+        console.error("Data connection error:", err);
+        showError("Data error: " + err);
+      });
     }
 
-    // Text chat functionality
+    // Chat functionality
     document.getElementById("sendChat").addEventListener("click", sendMessage);
-    chatInput.addEventListener("keypress", function(e) {
+    chatInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") sendMessage();
     });
 
@@ -249,7 +338,7 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // Emoji Button setup for chat input
+    // Emoji Button for chat input
     const emojiButton = document.getElementById("emojiButton");
     const picker = new EmojiButton({ position: "top-start" });
     picker.on("emoji", emoji => {
