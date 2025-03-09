@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice & Text Chat Room</title>
+  <title>Voice, Text & Screen Share Chat Room</title>
   <style>
     /* Global Reset & Basic Styles */
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -87,11 +87,29 @@
       font-weight: bold;
       font-size: 1.2rem;
     }
-    audio {
-      display: block;
-      margin: 0 auto 1rem;
+    /* The remote audio player is hidden */
+    audio { display: none; }
+    /* Video element to display screen share */
+    #screenShareVideo {
+      display: none;
       width: 90%;
       max-width: 600px;
+      margin: 0 auto 1rem;
+      border: 1px solid #222;
+      border-radius: 8px;
+    }
+    button {
+      background: #fff;
+      border: 1px solid #222;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      margin: 0.5rem;
+      transition: background 0.3s, color 0.3s;
+      border-radius: 4px;
+    }
+    button:hover {
+      background: #222;
+      color: #fff;
     }
     .chat-box {
       border: 1px solid #222;
@@ -154,7 +172,7 @@
 </head>
 <body>
   <div class="container">
-    <header>Voice & Text Chat Room</header>
+    <header>Voice, Text & Screen Share Chat Room</header>
 
     <!-- Home View: Create / Join Room -->
     <div id="home">
@@ -171,11 +189,13 @@
       <div id="errorMsg"></div>
     </div>
 
-    <!-- Chat View: Audio & Text Chat -->
+    <!-- Chat View: Voice, Text & Screen Share -->
     <div id="chat" style="display:none;">
       <div id="roomInfo"></div>
-      <!-- Remote audio for voice chat -->
-      <audio id="remoteAudio" autoplay controls></audio>
+      <!-- Video element to display the remote screen share (if active) -->
+      <video id="screenShareVideo" autoplay playsinline controls></video>
+      <!-- Share Screen button -->
+      <button id="shareScreen">Share Screen</button>
       <!-- Chat Box for text messages -->
       <div class="chat-box">
         <div class="messages" id="messages"></div>
@@ -189,23 +209,46 @@
     </div>
   </div>
 
-  <!-- PeerJS & Emoji Button libraries -->
+  <!-- Include PeerJS & Emoji Button libraries -->
   <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/@joeattardi/emoji-button@4.6.2/dist/index.js"></script>
   <script>
-    let peer, localStream, call, dataConn;
+    let peer, call, dataConn;
+    let localStream, dummyVideoTrack, combinedStream;
     let isHost = false;
 
-    // Get local audio (voice only)
-    async function getLocalAudio() {
+    // Create a dummy video track using a black canvas (1 fps)
+    function createDummyVideoTrack() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const stream = canvas.captureStream(1);
+      const [track] = stream.getVideoTracks();
+      // Mark this track as dummy so we can detect it later
+      track.isDummy = true;
+      return track;
+    }
+
+    // Get local audio and create a combined stream (audio + dummy video)
+    async function getLocalMedia() {
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStream = audioStream;
+        dummyVideoTrack = createDummyVideoTrack();
+        combinedStream = new MediaStream();
+        // Add the audio track
+        combinedStream.addTrack(audioStream.getAudioTracks()[0]);
+        // Add the dummy video track
+        combinedStream.addTrack(dummyVideoTrack);
       } catch (err) {
-        console.error("Error accessing audio devices:", err);
+        console.error("Error accessing media devices:", err);
         showError("Error accessing audio devices. Please check your microphone.");
       }
     }
-    getLocalAudio();
+    getLocalMedia();
 
     // UI elements
     const homeDiv = document.getElementById("home");
@@ -213,11 +256,10 @@
     const roomInfoDiv = document.getElementById("roomInfo");
     const createdRoomInfo = document.getElementById("createdRoomInfo");
     const errorMsg = document.getElementById("errorMsg");
-    const remoteAudio = document.getElementById("remoteAudio");
     const messagesDiv = document.getElementById("messages");
     const chatInput = document.getElementById("chatInput");
+    const screenShareVideo = document.getElementById("screenShareVideo");
 
-    // Show error messages in UI
     function showError(msg) {
       errorMsg.textContent = msg;
       setTimeout(() => { errorMsg.textContent = ""; }, 5000);
@@ -237,13 +279,13 @@
         homeDiv.style.display = "none";
         chatDiv.style.display = "block";
       });
-      // Handle incoming voice call (from joiner)
+      // Answer incoming calls with the combined stream
       peer.on("call", (incomingCall) => {
         call = incomingCall;
-        incomingCall.answer(localStream);
+        incomingCall.answer(combinedStream);
         setupCallEventHandlers(call);
       });
-      // Handle incoming data connection (for text chat)
+      // Data connection for text chat
       peer.on("connection", (conn) => {
         dataConn = conn;
         setupDataHandlers();
@@ -271,10 +313,10 @@
         roomInfoDiv.textContent = "Connected to Room: " + roomId;
         homeDiv.style.display = "none";
         chatDiv.style.display = "block";
-        // Initiate voice call to host
-        call = peer.call(roomId, localStream);
+        // Initiate a call to the host using the combined stream
+        call = peer.call(roomId, combinedStream);
         setupCallEventHandlers(call);
-        // Initiate data connection for text chat
+        // Data connection for text chat
         dataConn = peer.connect(roomId);
         setupDataHandlers();
       });
@@ -284,26 +326,32 @@
       });
     });
 
-    // Back to Home: reload page (or implement cleanup as needed)
+    // Back to Home (simple reload for cleanup)
     document.getElementById("backButton").addEventListener("click", () => {
       window.location.reload();
     });
 
-    // Voice call event handlers
+    // Set up call event handlers – listen for new tracks (screen share updates)
     function setupCallEventHandlers(call) {
-      call.on("stream", (remoteStream) => {
-        remoteAudio.srcObject = remoteStream;
+      call.peerConnection.addEventListener("track", event => {
+        if (event.track.kind === "video") {
+          // If this track is not the dummy one, show the screen share video element
+          if (!event.track.isDummy) {
+            screenShareVideo.style.display = "block";
+            screenShareVideo.srcObject = event.streams[0];
+          } else {
+            screenShareVideo.style.display = "none";
+          }
+        }
       });
-      call.on("close", () => {
-        console.log("Voice call ended.");
-      });
+      call.on("close", () => { console.log("Call ended."); });
       call.on("error", (err) => {
         console.error("Call error:", err);
         showError("Call error: " + err);
       });
     }
 
-    // Data connection handlers for text chat
+    // Set up data connection for text chat
     function setupDataHandlers() {
       dataConn.on("data", (data) => {
         appendMessage("Peer: " + data, "received");
@@ -319,7 +367,6 @@
     chatInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") sendMessage();
     });
-
     function sendMessage() {
       const message = chatInput.value.trim();
       if (!message) return;
@@ -329,7 +376,6 @@
       }
       chatInput.value = "";
     }
-
     function appendMessage(message, type) {
       const messageEl = document.createElement("div");
       messageEl.textContent = message;
@@ -337,6 +383,32 @@
       messagesDiv.appendChild(messageEl);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
+
+    // Screen Sharing functionality
+    document.getElementById("shareScreen").addEventListener("click", async () => {
+      if (!call) {
+        alert("No active call to share your screen.");
+        return;
+      }
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        // When screen sharing ends, revert back to the dummy video track
+        screenTrack.onended = async () => {
+          const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+          if (sender) {
+            sender.replaceTrack(dummyVideoTrack);
+          }
+        };
+        const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+        if (sender) {
+          sender.replaceTrack(screenTrack);
+        }
+      } catch (err) {
+        console.error("Screen share error:", err);
+        showError("Screen share error: " + err);
+      }
+    });
 
     // Emoji Button for chat input
     const emojiButton = document.getElementById("emojiButton");
