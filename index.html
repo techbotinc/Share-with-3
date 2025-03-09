@@ -5,73 +5,88 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>2-Person WebRTC Chat</title>
   <style>
-    /* Modern minimal UI styles */
-    body {
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f7fa;
+    /* Reset and basic styling */
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #000;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      min-height: 100vh;
     }
     header {
-      background: #1976d2;
-      color: #fff;
+      background: #fff;
+      border-bottom: 1px solid #ddd;
       padding: 1rem;
       text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
     }
     main {
       flex: 1;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1rem;
     }
     .video-container {
       display: flex;
       justify-content: center;
       gap: 1rem;
-      margin-bottom: 1rem;
+      width: 100%;
       flex-wrap: wrap;
+      margin-bottom: 1rem;
     }
     video {
-      border: 2px solid #1976d2;
-      border-radius: 8px;
       width: 45%;
       max-width: 400px;
+      border: 1px solid #000;
+      border-radius: 8px;
       background: #000;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
     .controls {
       margin-bottom: 1rem;
     }
     .controls button {
-      background: #1976d2;
-      border: none;
-      color: #fff;
+      background: #fff;
+      border: 1px solid #000;
+      color: #000;
       padding: 0.5rem 1rem;
       margin: 0 0.5rem;
       border-radius: 4px;
       cursor: pointer;
+      transition: background 0.3s, color 0.3s;
+    }
+    .controls button:hover {
+      background: #000;
+      color: #fff;
     }
     .chat {
       width: 90%;
       max-width: 600px;
-      background: #fff;
-      border: 1px solid #ddd;
+      border: 1px solid #000;
       border-radius: 8px;
       display: flex;
       flex-direction: column;
       height: 300px;
       overflow: hidden;
+      margin-bottom: 1rem;
     }
     .messages {
       flex: 1;
       overflow-y: auto;
       padding: 1rem;
+      background: #fff;
     }
     .message {
       margin-bottom: 0.5rem;
+      word-wrap: break-word;
     }
     .message.sent {
       text-align: right;
@@ -83,27 +98,35 @@
     .input-area input {
       flex: 1;
       border: none;
-      padding: 0.5rem;
+      padding: 0.75rem;
       font-size: 1rem;
+      outline: none;
     }
     .input-area button {
       border: none;
-      background: #1976d2;
-      color: #fff;
+      background: #fff;
+      border-left: 1px solid #000;
       padding: 0 1rem;
       cursor: pointer;
+      transition: background 0.3s, color 0.3s;
+    }
+    .input-area button:hover {
+      background: #000;
+      color: #fff;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>2-Person WebRTC Chat</h1>
-    <p>Screen sharing, voice/video & text chat with emojis</p>
+    2-Person WebRTC Chat
+    <div style="font-size: 0.9rem; font-weight: normal; margin-top: 0.5rem;">
+      Screen sharing, voice/video & text chat with emojis
+    </div>
   </header>
   <main>
     <div class="video-container">
-      <video id="localVideo" autoplay muted></video>
-      <video id="remoteVideo" autoplay></video>
+      <video id="localVideo" autoplay muted playsinline></video>
+      <video id="remoteVideo" autoplay playsinline></video>
     </div>
     <div class="controls">
       <button id="startCall">Start Call</button>
@@ -119,24 +142,22 @@
     </div>
   </main>
 
-  <!-- Include PeerJS (free, open source) -->
+  <!-- Include PeerJS (free and open source) -->
   <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-  <!-- Include Emoji Button (free, open source) -->
+  <!-- Include Emoji Button -->
   <script src="https://unpkg.com/@joeattardi/emoji-button@4.6.2/dist/index.js"></script>
   <script>
     // Global variables for PeerJS, streams, and connections
     let peer, localStream, call, dataConn;
-    // Optionally, let the user specify a peer id or generate one automatically
     const peerIdInput = prompt("Enter your Peer ID (or leave blank to generate one):");
-    
-    // Create a PeerJS instance; using the default PeerServer (public/free)
+
+    // Create PeerJS instance using the default public server
     peer = new Peer(peerIdInput || undefined, {
       host: "peerjs.com",
       secure: true,
       port: 443,
     });
 
-    // Once connected, display your peer id to share with your friend
     peer.on("open", (id) => {
       console.log("My peer ID is: " + id);
       alert("Your Peer ID is: " + id + ". Share it with your friend to connect.");
@@ -156,7 +177,7 @@
     // Answer incoming calls
     peer.on("call", (incomingCall) => {
       call = incomingCall;
-      call.answer(localStream); // Answer with your local stream
+      call.answer(localStream);
       setupCallEventHandlers(call);
     });
 
@@ -166,34 +187,52 @@
       setupDataHandlers();
     });
 
-    // Start a call when the "Start Call" button is clicked
+    // Start a call when "Start Call" is clicked
     document.getElementById("startCall").addEventListener("click", () => {
       const remotePeerId = prompt("Enter friend's Peer ID:");
       if (remotePeerId) {
-        // Call for media stream
+        // Initiate media call
         call = peer.call(remotePeerId, localStream);
-        // Also open a data connection for text messages
+        // Initiate data connection for text chat
         dataConn = peer.connect(remotePeerId);
         setupCallEventHandlers(call);
         setupDataHandlers();
       }
     });
 
-    // Screen sharing: replace the current video track with the screen stream
+    // Enhanced screen sharing function
     document.getElementById("shareScreen").addEventListener("click", async () => {
+      if (!call) {
+        alert("Please start a call before sharing your screen.");
+        return;
+      }
       try {
+        // Request screen stream
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const videoTrack = screenStream.getVideoTracks()[0];
-        const sender = call.peerConnection.getSenders().find(s => s.track.kind === "video");
-        sender.replaceTrack(videoTrack);
-        // When screen sharing ends, revert back to the camera video
-        videoTrack.onended = async () => {
-          const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          const newVideoTrack = cameraStream.getVideoTracks()[0];
-          sender.replaceTrack(newVideoTrack);
-        };
+        const screenTrack = screenStream.getVideoTracks()[0];
+        // Ensure call and peerConnection exist
+        if (call.peerConnection) {
+          const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+            // When the user stops sharing, revert back to the camera stream
+            screenTrack.onended = async () => {
+              try {
+                const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const cameraTrack = cameraStream.getVideoTracks()[0];
+                sender.replaceTrack(cameraTrack);
+              } catch (err) {
+                console.error("Error reverting to camera: ", err);
+              }
+            };
+          } else {
+            console.error("No video sender found in the call.");
+          }
+        } else {
+          alert("Screen sharing is not supported in this call.");
+        }
       } catch (err) {
-        console.error("Error sharing screen: ", err);
+        console.error("Error during screen sharing: ", err);
       }
     });
 
@@ -243,7 +282,7 @@
       });
     }
 
-    // Set up Emoji Button for text input
+    // Set up Emoji Button for chat input
     const emojiButton = document.getElementById("emojiButton");
     const picker = new EmojiButton({ position: "top-start" });
     picker.on("emoji", emoji => {
