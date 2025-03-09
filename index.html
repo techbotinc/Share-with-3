@@ -87,9 +87,9 @@
       font-weight: bold;
       font-size: 1.2rem;
     }
-    /* The remote audio player is hidden */
+    /* Hide remote audio player */
     audio { display: none; }
-    /* Video element to display screen share */
+    /* Video element to display the remote screen share (if active) */
     #screenShareVideo {
       display: none;
       width: 90%;
@@ -194,8 +194,8 @@
       <div id="roomInfo"></div>
       <!-- Video element to display the remote screen share (if active) -->
       <video id="screenShareVideo" autoplay playsinline controls></video>
-      <!-- Share Screen button -->
-      <button id="shareScreen">Share Screen</button>
+      <!-- Share Screen button (disabled until a call is active) -->
+      <button id="shareScreen" disabled>Share Screen</button>
       <!-- Chat Box for text messages -->
       <div class="chat-box">
         <div class="messages" id="messages"></div>
@@ -259,6 +259,7 @@
     const messagesDiv = document.getElementById("messages");
     const chatInput = document.getElementById("chatInput");
     const screenShareVideo = document.getElementById("screenShareVideo");
+    const shareScreenButton = document.getElementById("shareScreen");
 
     function showError(msg) {
       errorMsg.textContent = msg;
@@ -333,6 +334,8 @@
 
     // Set up call event handlers – listen for new tracks (screen share updates)
     function setupCallEventHandlers(call) {
+      // Enable the Share Screen button once a call is active
+      shareScreenButton.disabled = false;
       call.peerConnection.addEventListener("track", event => {
         if (event.track.kind === "video") {
           // If this track is not the dummy one, show the screen share video element
@@ -344,7 +347,10 @@
           }
         }
       });
-      call.on("close", () => { console.log("Call ended."); });
+      call.on("close", () => { 
+        console.log("Call ended.");
+        shareScreenButton.disabled = true;
+      });
       call.on("error", (err) => {
         console.error("Call error:", err);
         showError("Call error: " + err);
@@ -385,7 +391,8 @@
     }
 
     // Screen Sharing functionality
-    document.getElementById("shareScreen").addEventListener("click", async () => {
+    shareScreenButton.addEventListener("click", async () => {
+      // Ensure a call is active
       if (!call) {
         alert("No active call to share your screen.");
         return;
